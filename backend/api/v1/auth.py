@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from db.db import get_async_session
 from db.models.user import User
 from db.schemas.user import CreateUserRequest, Token
@@ -7,14 +7,21 @@ from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from pwdlib import PasswordHash
 from typing import Annotated
 from datetime import timedelta
-from repositories.auth import authenticate_user, create_user_token
+from repositories.auth import authenticate_user, create_user_token, get_current_user
 
 password_hash = PasswordHash.recommended()
 
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
 
+@auth_router.get("/")
+async def current_user(user: Annotated[dict, Depends(get_current_user)],
+                       db: AsyncSession = Depends(get_async_session)
+                       ):
+        if user is None:
+             raise HTTPException(status_code=401, detail="Authentication Failed")
+        return {"User" : user}
 
-@auth_router.post('/')
+@auth_router.post('/create')
 async def create_user(userrequest: CreateUserRequest, 
                       db: AsyncSession = Depends(get_async_session)):
     create_user_model = User(
@@ -30,7 +37,7 @@ async def create_user(userrequest: CreateUserRequest,
 async def login_for_accesstoken(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()], 
     db: AsyncSession = Depends(get_async_session)):
-    user = authenticate_user(form_data.username, form_data.password, db)
+    user = await authenticate_user(form_data.username, form_data.password, db)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate user")
     
