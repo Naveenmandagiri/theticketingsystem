@@ -10,7 +10,13 @@ class Settings(BaseSettings):
     database_port: str
     SECRET_KEY: str
     ALGORITHM: str
-
+    MAIL_USERNAME: str
+    MAIL_PASSWORD: str
+    MAIL_FROM: str
+    MAIL_SERVER: str
+    MAIL_PORT: int
+    MAIL_STARTTLS: bool 
+    MAIL_SSL_TLS: bool
 
 config = Settings()
 

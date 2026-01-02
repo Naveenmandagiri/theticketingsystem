@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from db.models.user import User
 from db.db import get_async_session
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +9,11 @@ from typing import Annotated, List, Optional
 from sqlalchemy import func, or_, asc, desc
 from sqlalchemy.orm import aliased
 from repositories.auth import get_current_user
+import logging
+from utils.email import send_email
+from datetime import date
+
+logger = logging.getLogger(__name__)
 
 password_hash = PasswordHash.recommended()
 
@@ -109,6 +114,7 @@ async def get_user(user_id: int, db: AsyncSession = Depends(get_async_session)):
 
 @user_router.post('/create')
 async def create_user(userrequest: CreateUserRequest, 
+                      background_tasks: BackgroundTasks,
                       authuser: Annotated[dict, Depends(get_current_user)],
                        db: AsyncSession = Depends(get_async_session )):
     create_user_model = User(
@@ -129,6 +135,21 @@ async def create_user(userrequest: CreateUserRequest,
     db.add(create_user_model)
     await db.commit()
     await db.refresh(create_user_model)
+
+    logger.info("User is created successfully")
+    email_context = {
+        "name": userrequest.firstname,
+        "email": userrequest.email,
+        "registration_date": date.today().strftime("%B %d, %Y")
+    }
+    background_tasks.add_task(
+        send_email,
+        subject="Welcome Aboard!",
+        recipient_email=[userrequest.email],
+        template_name="user_registration.html",
+        context=email_context
+    )
+
     return {
         'error': False,
         'message': '',
